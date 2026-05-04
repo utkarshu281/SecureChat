@@ -1,100 +1,76 @@
 import sqlite3
 from config import DB_FILE
+
 def init_db():
-    con=sqlite3.connect(DB_FILE)
+    con = sqlite3.connect(DB_FILE)
     cur = con.cursor()
-    cur.execute("""CREATE TABLE IF NOT EXISTS USERS (
+    cur.execute("""CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL,
+        username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         api_key TEXT NOT NULL
-        )""")
-    cur.execute("""CREATE TABLE IF NOT EXISTS Messages (
+    )""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL,
-        Room TEXT NOT NULL,
+        room TEXT NOT NULL,
         content TEXT,
         timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
-        private INTEGER
-        )""")
+        private INTEGER DEFAULT 0
+    )""")
     con.commit()
-def register_usr(username,password_hash,api_key):
-    con=sqlite3.connect(DB_FILE)
+    con.close()
+
+def register_user(username, password_hash, api_key):
+    con = sqlite3.connect(DB_FILE)
     cur = con.cursor()
-    cur.execute("INSERT INTO USERS (username, password_hash, api_key) VALUES(?,?,?)",(username,password_hash,api_key))
+    try:
+        cur.execute("INSERT INTO users (username, password_hash, api_key) VALUES (?,?,?)",
+                    (username, password_hash, api_key))
+        con.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        con.close()
+
+def get_user(username):
+    con = sqlite3.connect(DB_FILE)
+    cur = con.cursor()
+    cur.execute("SELECT * FROM users WHERE username = ?", (username,))
+    result = cur.fetchone()
+    con.close()
+    return result
+
+def get_user_by_api_key(api_key):
+    con = sqlite3.connect(DB_FILE)
+    cur = con.cursor()
+    cur.execute("SELECT * FROM users WHERE api_key = ?", (api_key,))
+    result = cur.fetchone()
+    con.close()
+    return result
+
+def save_message(username, room, content, private=0):
+    con = sqlite3.connect(DB_FILE)
+    cur = con.cursor()
+    cur.execute("INSERT INTO messages (username, room, content, private) VALUES (?,?,?,?)",
+                (username, room, content, private))
     con.commit()
-    
-def registered_users():
-    con=sqlite3.connect(DB_FILE)
+    con.close()
+
+def get_messages(room, limit=50):
+    con = sqlite3.connect(DB_FILE)
+    cur = con.cursor()
+    cur.execute("SELECT username, content, timestamp FROM messages WHERE room = ? ORDER BY timestamp DESC LIMIT ?",
+                (room, limit))
+    result = cur.fetchall()
+    con.close()
+    return list(reversed(result))
+
+def get_all_users():
+    con = sqlite3.connect(DB_FILE)
     cur = con.cursor()
     cur.execute("SELECT username FROM users")
-    row =cur.fetchone()
-    print("First row:", row)
-    con.commit()
-
-def verify_login(username):
-    con=sqlite3.connect(DB_FILE)
-    cur = con.cursor()
-    try:
-        cur.execute("SELECT * FROM users WHERE username = ?", (username,))
-        result = cur.fetchone()
-        if result:
-            print("Found user:", result)
-        else:
-            print("User not found")
-    except sqlite3.Error as e:
-        print("An error occurred:", e)
-    finally:
-        cur.close()
-        con.close()
-    
-def save_messages(username,content,Room):
-    con=sqlite3.connect(DB_FILE)
-    cur=con.cursor()
-    cur.execute("INSERT INTO Messages (username,content,Room) VALUES(?,?,?)",(username,content,Room)) 
-    con.commit()
-        
-def get_messages(Room):
-    con=sqlite3.connect(DB_FILE)
-    cur=con.cursor()
-    try:
-        cur.execute("SELECT content from Messages WHERE Room = ?",(Room,))
-        result = cur.fetchall()
-        print(f"Messgaes for this {Room} is:",result)
-    except sqlite3.Error as e:
-        print("An error occurred:", e)
-    finally:
-        cur.close()
-        con.close()
-            
-def delete_user(username):
-    con=sqlite3.connect(DB_FILE)
-    cur=con.cursor()
-    try:
-        cur.execute("DELETE FROM USERS WHERE username = ?",(username,))
-        verify_login(username)
-    except sqlite3.Error as e:
-        print("An error occurred:", e)
-    finally:
-        con.commit()
-        cur.close()
-        con.close()
-def last_message_time(username):
-    con=sqlite3.connect(DB_FILE)
-    cur=con.cursor()
-    try:
-        cur.execute("SELECT timestamp FROM Messages WHERE username = ? ORDER BY timestamp DESC LIMIT 1",(username,))
-        result = cur.fetchone()
-        print(f"Last Messgae for this {username} is:",result)
-    except sqlite3.Error as e:
-        print("An error occurred:", e)
-    finally:
-        cur.close()
-        con.close()
-#this function runs first
-if __name__ == "__main__":
-    init_db()
-    register_usr("utkarsh", "fakehash", "fakekey")
-    verify_login("utkarsh")
-    save_messages("utkarsh", "hello everyone", "general")
-    get_messages("general")
+    result = cur.fetchall()
+    con.close()
+    return [r[0] for r in result]
