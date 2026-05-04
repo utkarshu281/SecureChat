@@ -173,7 +173,7 @@ ip a
 
 **Step 2 — Update config.py:**
 ```python
-HOST = "192.168.1.5"   # replace with your actual local IP
+HOST = "local ip"   # replace with your actual local IP
 ```
 
 **Step 3 — Others run client.py** with the same HOST set in their config.py. Everyone must be on the same Wi-Fi network.
